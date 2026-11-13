@@ -1,0 +1,13 @@
+{
+  "partidas_por_arvore": 500,
+  "alternar_quem_comeca": true,
+  "adversarios": [
+    {"tipo":"aleatorio"},
+    {
+      "tipo": "limiar",
+      "variavel": "pontos_turno",
+      "valor": 20
+    }
+  ],
+  "fitness": "media_dos_adversarios"
+}

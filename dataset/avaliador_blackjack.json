@@ -1,0 +1,16 @@
+{
+  "partidas_por_arvore": 500,
+  "alternar_quem_comeca": true,
+  "adversarios": [
+    {"tipo":"aleatorio"},
+    {
+      "tipo": "limiar",
+      "variavel": "minha_soma",
+      "valor": 17
+    },
+    {"tipo": "superar",
+      "limiar_se_primeiro": 17
+    }
+  ],
+  "fitness": "media_dos_adversarios"
+}

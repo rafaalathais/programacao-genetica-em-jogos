@@ -1,0 +1,19 @@
+{
+  "jogo": "pig",
+  "variaveis": [
+    {"nome": "pontos_turno", "min": 0, "max": 100},
+    {"nome": "meu_placar", "min": 0, "max": 100},
+    {"nome": "placar_adv", "min": 0, "max": 100}
+  ],
+  "acoes": ["CONTINUAR", "PARAR"],
+  "comparacoes": [">=", ">"],
+  "regras": {
+    "pontos_para_vencer": 100,
+    "dado": {
+      "faces": 6,
+      "quantidade": 1
+    },
+    "face_q_zera_turno": 1,
+    "vitoria_imediata": true
+  }
+}

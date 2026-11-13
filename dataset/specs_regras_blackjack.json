@@ -1,0 +1,21 @@
+{
+  "jogo": "blackjack_dados",
+  "variaveis": [
+    {"nome": "minha_soma", "min": 0, "max": 21},
+    {"nome": "soma_adv", "min": 0, "max": 21},
+    {"nome": "sou_segundo", "min": 0, "max": 1}
+  ],
+  "acoes": ["CONTINUAR", "PARAR"],
+  "comparacoes": [">=", ">"],
+  "regras": {
+    "limite_de_estouro": 21,
+    "dado": {
+      "faces": 6,
+      "quantidade": 2,
+      "quantidade_reduzida": 1,
+      "reduz_a_partir_de": 16
+    },
+    "rolagem_obrigatoria": true,
+    "empate": "conta_como_derrota"
+  }
+}

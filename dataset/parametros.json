@@ -1,0 +1,30 @@
+{
+  "populacao": 100,
+  "geracoes_max": 50,
+  "semente": 42,
+
+  "profundidade_min": 2,
+  "profundidade_max": 5,
+  "profundidade_limite_filhos": 6,
+
+  "selecao": {
+    "torneio_tamanho": 3,
+    "elitismo": 2
+  },
+
+  "cruzamento": {
+    "probabilidade": 0.85,
+  "prob_ponto_interno": 0.9
+  },
+
+  "mutacao": {
+    "probabilidade": 0.05,
+    "prob_so_constante": 0.5,
+    "profundidade_subarvore": 2,
+    "variacao_constante": 3
+  },
+  "parada": {
+    "winrate_alvo": 0.95,
+    "geracoes_sem_melhora": 10
+  }
+}
