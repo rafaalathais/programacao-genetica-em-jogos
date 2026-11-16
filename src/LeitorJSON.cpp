@@ -6,11 +6,14 @@
 
 #include <iostream>
 
-Parametros LeitorJSON::lerParametros(std::ifstream arquivo) {
+nlohmann::json LeitorJSON::lerParametros(const std::string &caminho) {
+    std::ifstream arquivo(caminho);
+
+    if (!arquivo.is_open()) {
+        throw std::runtime_error("ERRO: Não foi possível abriro arquivo. Caminho: " + caminho);
+    }
+
     nlohmann::json dados;
     arquivo >> dados;
-
-    Parametros parametros = dados.get<Parametros>();
-
-    return parametros;
+    return dados;
 }

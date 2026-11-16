@@ -10,7 +10,7 @@
 
 class LeitorJSON {
     public:
-    static Parametros lerParametros(std::ifstream arquivo);
+    static nlohmann::json lerParametros(const std::string& caminho);
 
     /*
      * Como os JSON de regras e de avaliadores dos dois jogos são diferentes, as opções são:
