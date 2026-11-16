@@ -8,19 +8,19 @@
 #include "nlohmann/json.hpp"
 #include <fstream>
 
+struct Opcoes {
+    nlohmann::json parametros;
+    nlohmann::json regras;
+    nlohmann::json avaliador;
+};
+
 class LeitorJSON {
-    public:
-    static nlohmann::json lerParametros(const std::string& caminho);
+private:
+    static nlohmann::json lerJSON(const std::string& caminho);
 
-    /*
-     * Como os JSON de regras e de avaliadores dos dois jogos são diferentes, as opções são:
-     * - Criar um struct baseado no jogo com mais atributos, e aí os dados que não se aplicarem ao outro jogo ficam como Null
-     * - Padronizar os JSON ao invés do struct
-     */
-
-    //static Regras lerRegras(std::ifstream arquivo);
-    //static CriterioAvaliador lerCriterios(std::ifstream arquivo);
-
+public:
+    static Opcoes lerOpcoes(const std::string& caminhoParametros, const std::string &caminhoRegras,
+                                const std::string& caminhoAvaliador);
 };
 
 
