@@ -3,20 +3,51 @@
 //
 
 #include "../include/LeitorJSON.h"
-
 #include <iostream>
-nlohmann::json LeitorJSON::lerJSON(const std::string& caminho) {
+#include <fstream>
+
+using namespace std;
+using namespace nlohmann;
+
+
+json LeitorJSON::lerJSON(const string& caminho) {
+
     std::ifstream arquivo(caminho);
 
     if (!arquivo.is_open()) {
-        throw std::runtime_error("ERRO: Não foi possível abriro arquivo. Caminho: " + caminho);
+        throw std::runtime_error("ERRO: Não foi possível abrir o arquivo. Caminho: " + caminho);
     }
 
-    nlohmann::json dados;
+    json dados;
     arquivo >> dados;
     return dados;
+
 }
 
-Opcoes LeitorJSON::lerOpcoes(const std::string& caminhoParametros, const std::string& caminhoRegras, const std::string& caminhoAvaliador){
-    return {lerJSON(caminhoParametros), lerJSON(caminhoRegras), lerJSON(caminhoAvaliador)};
+Parametros LeitorJSON::lerParametros(const string& caminho) {
+    json dados = lerJSON(caminho);
+    Parametros parametros = dados.get<Parametros>();
+    return parametros;
+}
+
+CriterioAvaliador LeitorJSON::lerCriterio(const string& caminho) {
+    json dados = lerJSON(caminho);
+    CriterioAvaliador criterio = dados.get<CriterioAvaliador>();
+    return criterio;
+}
+
+std::tuple<Vocabulario, json> LeitorJSON::lerSpec(const string& caminho) {
+    json dados = lerJSON(caminho);
+    Vocabulario vocabulario = dados.get<Vocabulario>();
+    json regras = dados.at("regras");
+    return std::make_tuple(vocabulario, regras);
+}
+
+
+Opcoes LeitorJSON::lerOpcoes(const string& caminhoParametros, const string& caminhoAvaliador, const string& caminhoSpec){
+    Parametros parametros = lerParametros(caminhoParametros);
+    CriterioAvaliador criterio = lerCriterio(caminhoAvaliador);
+    auto [vocabulario, regras] = lerSpec(caminhoSpec);
+
+    return {parametros, criterio, vocabulario, regras};
 }

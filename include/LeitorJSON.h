@@ -5,22 +5,27 @@
 #ifndef PROGRAMACAO_GENETICA_EM_JOGOS_LEITORJSON_H
 #define PROGRAMACAO_GENETICA_EM_JOGOS_LEITORJSON_H
 #include "parametros.h"
+#include "criterioAvaliador.h"
 #include "nlohmann/json.hpp"
-#include <fstream>
+
+#include "vocabulario.h"
 
 struct Opcoes {
-    nlohmann::json parametros;
+    Parametros parametros;
+    CriterioAvaliador avaliador;
+    Vocabulario vocabulario;
     nlohmann::json regras;
-    nlohmann::json avaliador;
 };
 
 class LeitorJSON {
 private:
     static nlohmann::json lerJSON(const std::string& caminho);
+    static Parametros lerParametros(const std::string& caminho);
+    static CriterioAvaliador lerCriterio(const std::string& caminho);
+    static std::tuple<Vocabulario,nlohmann::json> lerSpec(const std::string& caminho);
 
 public:
-    static Opcoes lerOpcoes(const std::string& caminhoParametros, const std::string &caminhoRegras,
-                                const std::string& caminhoAvaliador);
+    static Opcoes lerOpcoes(const std::string& caminhoParametros, const std::string& caminhoAvaliador, const std::string& caminhoSpec);
 };
 
 
