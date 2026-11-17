@@ -12,5 +12,5 @@
       "limiar_se_primeiro": 17
     }
   ],
-  "fitness": "media_dos_adversarios"
+  "fitness": "minimo_com_desempate_pela_media"
 }
