@@ -32,4 +32,8 @@ Para responder às perguntas de pesquisa do artigo, o módulo de estatísticas r
 
 ## Como compilar e executar
 Pré-requisitos:
+* Compilador de C++
+
+(teste)
+``g++  -Iinclude teste_gerador.cpp src/No.cpp src/GeradorArvores.cpp -o teste_gerador ``
 
