@@ -11,7 +11,8 @@
 # Aqui cada limite vira rodadas separadas, para rodarem em paralelo em núcleos diferentes.
 #
 # Cada rodada grava em $SAIDA/<jogo>/limite_<L>_partidas_<P>/semente_<n>.*  (ver include/experimento.h)
-# No fim: $SAIDA/resumo.csv (uma linha por rodada), $SAIDA/log.txt e $SAIDA/configuracao.txt.
+# No fim: $SAIDA/resumo.csv (uma linha por rodada), $SAIDA/log.txt e $SAIDA/configuracao.txt,
+# e as tabelas e os gráficos em $SAIDA/graficos/ (scripts/graficos.py; GRAFICOS=0 pula essa parte).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -23,6 +24,7 @@ CONFIRMACAO=${CONFIRMACAO:-100000} # partidas por adversário na reavaliação (
 GERACOES=${GERACOES:-50}
 SEM_MELHORA=${SEM_MELHORA:-1000}   # alto = toda rodada vai até GERACOES (curvas de bloat comparáveis)
 POPULACAO=${POPULACAO:-}           # vazio = a do parametros.json
+GRAFICOS=${GRAFICOS:-1}            # 1 = roda scripts/graficos.py no fim
 PARALELO=${PARALELO:-$(nproc)}
 SAIDA=${SAIDA:-resultados/bateria_$(date +%Y%m%d_%H%M%S)}
 
@@ -79,5 +81,15 @@ if [[ -f "$SAIDA/resumo.csv" ]]; then
             for (k in n) { split(k, a, " ")
                 printf "%-10s %6s %3d %12.1f%% %12.1f%% %10.1f %10.1f %11.1f %8.1f\n", a[1], a[2], n[k], 100*w[k]/n[k], 100*e[k]/n[k], nos[k]/n[k], ef[k]/n[k], pop[k]/n[k], t[k]/n[k] }
         }' "$SAIDA/resumo.csv" | (read -r cab; echo "$cab"; sort -k1,1 -k2,2n)
+fi
+# tabelas e gráficos (não derruba a bateria se faltar python/pandas/matplotlib: os csv já estão salvos)
+if [[ "$GRAFICOS" == 1 && -f "$SAIDA/resumo.csv" ]]; then
+    echo
+    if python3 -c "import pandas, matplotlib" 2>/dev/null; then
+        python3 scripts/graficos.py "$SAIDA" || echo "aviso: scripts/graficos.py falhou; rode de novo à mão"
+    else
+        echo "gráficos pulados: falta pandas/matplotlib (pip install pandas matplotlib)."
+        echo "depois, rode: python3 scripts/graficos.py $SAIDA"
+    fi
 fi
 exit $falhou
