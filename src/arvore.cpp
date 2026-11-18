@@ -61,6 +61,25 @@ Acao avaliar(const No& arvore, const Estado& estado) {
     return static_cast<Acao>(atual->valor);
 }
 
+Acao avaliarMarcando(const No& arvore, const Estado& estado, std::unordered_set<const No*>& visitados) {
+    const No* atual = &arvore;
+    while (atual->tipo == TipoNo::SE) {
+        visitados.insert(atual);
+        atual = avaliarCondicao(*atual->filhos[0], estado) ? atual->filhos[1].get() : atual->filhos[2].get();
+    }
+    if (atual->tipo != TipoNo::ACAO) throw std::logic_error("avaliarMarcando: árvore inválida (esperava uma ação)");
+    visitados.insert(atual);
+    return static_cast<Acao>(atual->valor);
+}
+
+int nosEfetivos(const No& arvore, const std::unordered_set<const No*>& visitados) {
+    if (visitados.count(&arvore) == 0) return 0;  // nenhuma decisão chegou aqui
+    if (arvore.tipo != TipoNo::SE) return 1;      // folha de ação alcançada
+    // o SE e a sua comparação inteira contam; os ramos, só se foram visitados
+    return 1 + tamanho(*arvore.filhos[0]) + nosEfetivos(*arvore.filhos[1], visitados) +
+           nosEfetivos(*arvore.filhos[2], visitados);
+}
+
 // ---------------------------------------------------------------- medidas e cópia
 
 Arvore copiar(const No& arvore) {

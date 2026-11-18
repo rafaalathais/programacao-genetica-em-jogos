@@ -23,6 +23,11 @@ struct Mutacao {
 struct Parada {
     double winrate_alvo;
     int geracoes_sem_melhora;
+    // Partidas por adversário para CONFIRMAR um candidato (0 = não confirmar).
+    // Quando o melhor da geração mede >= winrate_alvo, ele é reavaliado com estas
+    // partidas novas, e a evolução só para se o número se mantiver. Também é usado
+    // para escolher o campeão final. Ver motor.h.
+    int partidas_confirmacao;
 };
 
 struct Parametros {
@@ -51,7 +56,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Mutacao,
     profundidade_subarvore, variacao_constante);
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Parada,
-    winrate_alvo, geracoes_sem_melhora);
+    winrate_alvo, geracoes_sem_melhora, partidas_confirmacao);
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Parametros,
     populacao, geracoes_max, semente,

@@ -25,6 +25,7 @@
   },
   "parada": {
     "winrate_alvo": 0.60,
-    "geracoes_sem_melhora": 10
+    "geracoes_sem_melhora": 10,
+    "partidas_confirmacao": 20000
   }
 }

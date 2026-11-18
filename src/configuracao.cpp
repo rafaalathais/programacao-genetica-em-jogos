@@ -81,6 +81,9 @@ void validarParametros(const Parametros& p) {
 
     probabilidade(p.parada.winrate_alvo, "parada.winrate_alvo");
     exigir(p.parada.geracoes_sem_melhora >= 1, "parada.geracoes_sem_melhora deveria ser pelo menos 1");
+    // par: na confirmação cada lado também começa metade das partidas.
+    exigir(p.parada.partidas_confirmacao >= 0 && p.parada.partidas_confirmacao % 2 == 0,
+           "parada.partidas_confirmacao deveria ser 0 (sem confirmação) ou um número par positivo");
 
     if (!problemas.empty()) {
         std::string mensagem = "parametros inválidos:";

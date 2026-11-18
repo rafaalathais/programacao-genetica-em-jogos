@@ -38,6 +38,10 @@ public:
 
     Avaliacao avaliar(const No& arvore);
 
+    // O mesmo, com outro número de partidas por adversário (ex.: a confirmação do
+    // motor, com 20000). Lança std::invalid_argument se partidas < 1.
+    Avaliacao avaliar(const No& arvore, int partidas);
+
     // Avalia a população inteira, na ordem do vetor.
     std::vector<Avaliacao> avaliar(const std::vector<Arvore>& populacao);
 

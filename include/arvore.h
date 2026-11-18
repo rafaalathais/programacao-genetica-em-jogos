@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "tipos.h"
@@ -59,6 +60,16 @@ Arvore criarAcao(Acao acao);
 // Percorre a árvore com o estado e devolve a decisão.
 // Lança std::out_of_range se o estado tiver menos valores que o vocabulário.
 Acao avaliar(const No& arvore, const Estado& estado);
+
+// Igual a avaliar, mas anota em `visitados` os nós por onde a decisão passou
+// (os SEs do caminho e a folha final). Serve para medir o bloat: nós que nenhuma
+// decisão real visita não mudam o comportamento da árvore.
+Acao avaliarMarcando(const No& arvore, const Estado& estado, std::unordered_set<const No*>& visitados);
+
+// "Nós efetivos": quantos nós da árvore participam de alguma decisão anotada em
+// `visitados` (cada SE visitado conta com a sua comparação inteira; folhas, 1 cada).
+// Sempre <= tamanho(arvore).
+int nosEfetivos(const No& arvore, const std::unordered_set<const No*>& visitados);
 
 // Cópia profunda: cria nós novos para tudo (a cópia não divide nada com o original).
 Arvore copiar(const No& arvore);

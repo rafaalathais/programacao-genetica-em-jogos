@@ -142,5 +142,28 @@ int main() {
     }
     std::cout << "  [info] exemplo de mensagem: " << validar(*se(Comparacao::MAIOR, PT, 100, P, C), pig) << "\n";
 
+    // ---- nós efetivos (bloat) ----
+    {
+        // SE(pontos_turno >= 20, SE(pontos_turno >= 10, PARAR, CONTINUAR), CONTINUAR)
+        // o ramo "pontos_turno >= 10" é sempre verdadeiro quando chega lá: o CONTINUAR de dentro nunca é visitado.
+        Arvore t = criarSe(criarComparacao(Comparacao::MAIOR_IGUAL, criarVariavel(0), criarConstante(20)),
+                           criarSe(criarComparacao(Comparacao::MAIOR_IGUAL, criarVariavel(0), criarConstante(10)),
+                                   criarAcao(Acao::PARAR), criarAcao(Acao::CONTINUAR)),
+                           criarAcao(Acao::CONTINUAR));
+        std::unordered_set<const No*> vis;
+        VERIFICAR(nosEfetivos(*t, vis) == 0);
+        bool igual = true;
+        for (int pt = 0; pt <= 100; ++pt) {
+            const Estado e = {pt, 0, 0};
+            igual &= avaliarMarcando(*t, e, vis) == avaliar(*t, e);
+        }
+        VERIFICAR(igual);
+        VERIFICAR(tamanho(*t) == 11);
+        VERIFICAR_MSG(nosEfetivos(*t, vis) == 10, nosEfetivos(*t, vis));  // 11 menos o CONTINUAR inalcançável
+        std::unordered_set<const No*> so20;
+        avaliarMarcando(*t, Estado{5, 0, 0}, so20);  // só o caminho "falso" da raiz
+        VERIFICAR(nosEfetivos(*t, so20) == 5);       // SE + comparação (3) + folha
+    }
+
     return teste::fim("arvore");
 }

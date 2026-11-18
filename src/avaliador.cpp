@@ -1,6 +1,7 @@
 #include "avaliador.h"
 
 #include <algorithm>
+#include <stdexcept>
 
 #include "configuracao.h"  // validarCriterio
 
@@ -10,14 +11,16 @@ Avaliador::Avaliador(const CriterioAvaliador& criterio, const Vocabulario& vocab
     for (const Adversario& a : criterio_.adversarios) adversarios_.push_back(criarAdversario(a, vocab, aleatorio));
 }
 
-Avaliacao Avaliador::avaliar(const No& arvore) {
+Avaliacao Avaliador::avaliar(const No& arvore) { return avaliar(arvore, criterio_.partidas_por_arvore); }
+
+Avaliacao Avaliador::avaliar(const No& arvore, int partidas) {
+    if (partidas < 1) throw std::invalid_argument("Avaliador::avaliar: partidas deveria ser pelo menos 1");
     JogadorArvore jogador(arvore);
     Avaliacao r;
     double soma = 0.0;
     double minimo = 1.0;
     for (const auto& adversario : adversarios_) {
-        const Placar p = jogarSerie(jogo_, jogador, *adversario, criterio_.partidas_por_arvore,
-                                    criterio_.alternar_quem_comeca);
+        const Placar p = jogarSerie(jogo_, jogador, *adversario, partidas, criterio_.alternar_quem_comeca);
         r.placares.push_back(p);
         soma += p.winrate();
         minimo = std::min(minimo, p.winrate());

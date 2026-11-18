@@ -34,6 +34,7 @@ int main() {
     VERIFICAR(p.mutacao.probabilidade == 0.05 && p.mutacao.prob_so_constante == 0.5);
     VERIFICAR(p.mutacao.profundidade_subarvore == 2 && p.mutacao.variacao_constante == 3.0);
     VERIFICAR(p.parada.winrate_alvo == 0.60 && p.parada.geracoes_sem_melhora == 10);
+    VERIFICAR(p.parada.partidas_confirmacao == 20000);
 
     // Avaliador e spec do Pig.
     VERIFICAR(o.avaliador.partidas_por_arvore == 500 && o.avaliador.alternar_quem_comeca);
@@ -146,6 +147,10 @@ int main() {
     VERIFICAR_LANCA(std::runtime_error, lerParametros(alterado([](json& j) { j["mutacao"]["profundidade_subarvore"] = 0; })));
     VERIFICAR_LANCA(std::runtime_error, lerParametros(alterado([](json& j) { j["parada"]["winrate_alvo"] = 60; })));
     VERIFICAR_LANCA(std::runtime_error, lerParametros(alterado([](json& j) { j["parada"]["geracoes_sem_melhora"] = 0; })));
+    VERIFICAR_LANCA(std::runtime_error, lerParametros(alterado([](json& j) { j["parada"]["partidas_confirmacao"] = -2; })));
+    VERIFICAR_LANCA(std::runtime_error, lerParametros(alterado([](json& j) { j["parada"]["partidas_confirmacao"] = 999; })));
+    VERIFICAR_LANCA(std::runtime_error, lerParametros(alterado([](json& j) { j["parada"].erase("partidas_confirmacao"); })));
+    VERIFICAR(lerParametros(alterado([](json& j) { j["parada"]["partidas_confirmacao"] = 0; })).parada.partidas_confirmacao == 0);
 
     // 100.0 é um inteiro escrito com ponto: aceito.
     VERIFICAR(lerParametros(alterado([](json& j) { j["populacao"] = 100.0; })).populacao == 100);
