@@ -37,6 +37,24 @@ int lerInteiro(const std::string& opcao, const std::string& texto) {
     return v;
 }
 
+// "3,5,7,10" -> {3, 5, 7, 10}. Recusa pedaço vazio ("3,,5") e limite repetido
+// (duas rodadas iguais gravariam na mesma pasta).
+std::vector<int> lerListaInteiros(const std::string& opcao, const std::string& texto) {
+    std::vector<int> lista;
+    std::size_t inicio = 0;
+    while (true) {
+        const std::size_t virgula = texto.find(',', inicio);
+        const std::string pedaco = texto.substr(inicio, virgula == std::string::npos ? std::string::npos : virgula - inicio);
+        const int v = lerInteiro(opcao, pedaco);
+        for (int ja : lista)
+            if (ja == v) throw std::runtime_error("valor repetido em " + opcao + ": " + std::to_string(v));
+        lista.push_back(v);
+        if (virgula == std::string::npos) break;
+        inicio = virgula + 1;
+    }
+    return lista;
+}
+
 double lerReal(const std::string& opcao, const std::string& texto) {
     std::size_t usados = 0;
     double v = 0;
@@ -161,7 +179,8 @@ std::string rodar(const ConfigExperimento& cfg, const Opcoes& o, Parametros p, C
 std::string usoExperimento() {
     return "uso: experimento --jogo pig|blackjack [opções]\n"
            "  --semente N        semente do gerador (padrão: a do parametros.json)\n"
-           "  --limite N         profundidade_limite_filhos (profundidade_max é reduzida se passar dele)\n"
+           "  --limite L[,L...]  profundidade_limite_filhos; com uma lista (ex.: 3,5,7,10) roda uma vez\n"
+           "                     por limite, em sequência (profundidade_max é reduzida se passar dele)\n"
            "  --partidas N       partidas por adversário na evolução (par)\n"
            "  --confirmacao N    partidas por adversário na reavaliação (par; 0 desliga)\n"
            "  --geracoes N       geracoes_max\n"
@@ -169,7 +188,7 @@ std::string usoExperimento() {
            "  --alvo X           winrate_alvo (0 a 1)\n"
            "  --populacao N      tamanho da população\n"
            "  --saida PASTA      onde gravar (padrão: resultados)\n"
-           "  --rotulo NOME      nome da pasta da configuração (padrão: limite_<L>_partidas_<P>)\n"
+           "  --rotulo NOME      nome da pasta da configuração (padrão: limite_<L>_partidas_<P>; só com um limite)\n"
            "  --parametros, --avaliador, --spec ARQUIVO   outros json (padrão: os de dataset/)\n";
 }
 
@@ -181,7 +200,7 @@ ConfigExperimento lerArgumentos(const std::vector<std::string>& args) {
         const std::string& val = args[++i];
         if (op == "--jogo") c.jogo = val;
         else if (op == "--semente") c.semente = lerInteiro(op, val);
-        else if (op == "--limite") c.limite = lerInteiro(op, val);
+        else if (op == "--limite") c.limites = lerListaInteiros(op, val);
         else if (op == "--partidas") c.partidas = lerInteiro(op, val);
         else if (op == "--confirmacao") c.confirmacao = lerInteiro(op, val);
         else if (op == "--geracoes") c.geracoes = lerInteiro(op, val);
@@ -197,32 +216,48 @@ ConfigExperimento lerArgumentos(const std::vector<std::string>& args) {
     }
     if (c.jogo != JOGO_PIG && c.jogo != JOGO_BLACKJACK)
         throw std::runtime_error("--jogo deveria ser \"pig\" ou \"blackjack\"\n" + usoExperimento());
+    if (c.limites.size() > 1 && !c.rotulo.empty())
+        throw std::runtime_error("--rotulo não pode ser usado com mais de um limite (as rodadas gravariam na mesma pasta)");
     return c;
 }
 
-std::string rodarExperimento(const ConfigExperimento& cfg, std::ostream& log) {
+std::vector<std::string> rodarExperimento(const ConfigExperimento& cfg, std::ostream& log) {
+    if (cfg.limites.size() > 1 && !cfg.rotulo.empty())
+        throw std::runtime_error("--rotulo não pode ser usado com mais de um limite (as rodadas gravariam na mesma pasta)");
     const std::string avaliador = cfg.avaliador.empty() ? "dataset/avaliador_" + cfg.jogo + ".json" : cfg.avaliador;
     const std::string spec = cfg.spec.empty() ? "dataset/specs_regras_" + cfg.jogo + ".json" : cfg.spec;
     const Opcoes o = LeitorJSON::lerOpcoes(cfg.parametros, avaliador, spec);
 
     // trocas pedidas na linha de comando, conferidas pelas mesmas validações dos json
-    Parametros p = o.parametros;
+    Parametros base = o.parametros;
     CriterioAvaliador c = o.avaliador;
-    if (cfg.semente) p.semente = *cfg.semente;
-    if (cfg.populacao) p.populacao = *cfg.populacao;
-    if (cfg.geracoes) p.geracoes_max = *cfg.geracoes;
-    if (cfg.semMelhora) p.parada.geracoes_sem_melhora = *cfg.semMelhora;
-    if (cfg.alvo) p.parada.winrate_alvo = *cfg.alvo;
-    if (cfg.confirmacao) p.parada.partidas_confirmacao = *cfg.confirmacao;
+    if (cfg.semente) base.semente = *cfg.semente;
+    if (cfg.populacao) base.populacao = *cfg.populacao;
+    if (cfg.geracoes) base.geracoes_max = *cfg.geracoes;
+    if (cfg.semMelhora) base.parada.geracoes_sem_melhora = *cfg.semMelhora;
+    if (cfg.alvo) base.parada.winrate_alvo = *cfg.alvo;
+    if (cfg.confirmacao) base.parada.partidas_confirmacao = *cfg.confirmacao;
     if (cfg.partidas) c.partidas_por_arvore = *cfg.partidas;
-    if (cfg.limite) {
-        p.profundidade_limite_filhos = *cfg.limite;
-        p.profundidade_max = std::min(p.profundidade_max, *cfg.limite);  // a população inicial cabe no limite
-        p.profundidade_min = std::min(p.profundidade_min, p.profundidade_max);
-    }
-    validarParametros(p);
     validarCriterio(c);
 
-    if (cfg.jogo == JOGO_PIG) return rodar<Pig>(cfg, o, p, c, log);
-    return rodar<BlackjackDados>(cfg, o, p, c, log);
+    // um conjunto de parâmetros por limite; todos conferidos antes de rodar o primeiro
+    std::vector<Parametros> rodadas;
+    if (cfg.limites.empty()) rodadas.push_back(base);
+    for (int limite : cfg.limites) {
+        Parametros p = base;
+        p.profundidade_limite_filhos = limite;
+        p.profundidade_max = std::min(p.profundidade_max, limite);  // a população inicial cabe no limite
+        p.profundidade_min = std::min(p.profundidade_min, p.profundidade_max);
+        rodadas.push_back(p);
+    }
+    for (const Parametros& p : rodadas) validarParametros(p);
+
+    // Cada rodada cria o seu Aleatorio a partir da semente (dentro de rodar):
+    // a rodada do limite 7 dá o mesmo resultado sozinha ou no meio de uma lista.
+    std::vector<std::string> resumos;
+    for (const Parametros& p : rodadas) {
+        if (cfg.jogo == JOGO_PIG) resumos.push_back(rodar<Pig>(cfg, o, p, c, log));
+        else resumos.push_back(rodar<BlackjackDados>(cfg, o, p, c, log));
+    }
+    return resumos;
 }

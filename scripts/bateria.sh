@@ -3,9 +3,12 @@
 # várias rodadas ao mesmo tempo (uma por núcleo), e no fim junta os resumos.
 #
 # Uso, da raiz do projeto:
-#   scripts/bateria.sh                       # bateria completa (padrões abaixo, ~20-30 min em 12 núcleos)
+#   scripts/bateria.sh                       # bateria completa (padrões abaixo, ~50-60 min em 12 núcleos)
 #   RAPIDO=1 scripts/bateria.sh              # bateria mínima, só para conferir que tudo funciona (segundos)
-#   PARTIDAS=2000 CONFIRMACAO=20000 LIMITES="4 6 8 10 12" scripts/bateria.sh
+#   PARTIDAS=2000 CONFIRMACAO=20000 LIMITES=3,5,7,10,12 scripts/bateria.sh
+#
+# LIMITES aceita a lista com vírgulas (3,5,7,10, igual ao --limite do experimento) ou com espaços.
+# Aqui cada limite vira rodadas separadas, para rodarem em paralelo em núcleos diferentes.
 #
 # Cada rodada grava em $SAIDA/<jogo>/limite_<L>_partidas_<P>/semente_<n>.*  (ver include/experimento.h)
 # No fim: $SAIDA/resumo.csv (uma linha por rodada), $SAIDA/log.txt e $SAIDA/configuracao.txt.
@@ -13,7 +16,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 JOGOS=${JOGOS:-"pig blackjack"}
-LIMITES=${LIMITES:-"4 6 8 10"}
+LIMITES=${LIMITES:-"3,5,7,10"}        # limites de profundidade do esboço do artigo
 SEMENTES=${SEMENTES:-"1 2 3 4 5 6 7 8 9 10"}
 PARTIDAS=${PARTIDAS:-20000}        # partidas por adversário na evolução
 CONFIRMACAO=${CONFIRMACAO:-100000} # partidas por adversário na reavaliação (maior que PARTIDAS)
@@ -24,9 +27,11 @@ PARALELO=${PARALELO:-$(nproc)}
 SAIDA=${SAIDA:-resultados/bateria_$(date +%Y%m%d_%H%M%S)}
 
 if [[ "${RAPIDO:-0}" == 1 ]]; then
-    LIMITES="4 6"; SEMENTES="1 2"; PARTIDAS=100; CONFIRMACAO=1000; GERACOES=3; POPULACAO=20
+    LIMITES="3,5"; SEMENTES="1 2"; PARTIDAS=100; CONFIRMACAO=1000; GERACOES=3; POPULACAO=20
     SAIDA=${SAIDA_RAPIDO:-resultados/rapido}
 fi
+
+LIMITES=${LIMITES//,/ }             # "3,5,7,10" -> "3 5 7 10"
 
 make -s experimento
 mkdir -p "$SAIDA"

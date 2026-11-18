@@ -28,7 +28,7 @@ int main() {
     {
         const ConfigExperimento c = lerArgumentos({"--jogo", "pig", "--semente", "7", "--limite", "8", "--partidas", "2000",
                                                    "--confirmacao", "0", "--alvo", "0.52", "--saida", "x", "--rotulo", "r"});
-        VERIFICAR(c.jogo == "pig" && *c.semente == 7 && *c.limite == 8 && *c.partidas == 2000);
+        VERIFICAR(c.jogo == "pig" && *c.semente == 7 && c.limites == std::vector<int>{8} && *c.partidas == 2000);
         VERIFICAR(*c.confirmacao == 0 && *c.alvo == 0.52 && c.saida == "x" && c.rotulo == "r");
         VERIFICAR(!c.geracoes && !c.populacao && c.avaliador.empty());
         VERIFICAR_LANCA(std::runtime_error, lerArgumentos({"--jogo", "xadrez"}));
@@ -37,6 +37,20 @@ int main() {
         VERIFICAR_LANCA(std::runtime_error, lerArgumentos({"--jogo", "pig", "--semente", "3x"})); // número inválido
         VERIFICAR_LANCA(std::runtime_error, lerArgumentos({"--jogo", "pig", "--sementes", "3"})); // opção desconhecida
         VERIFICAR_LANCA(std::runtime_error, lerArgumentos({"--jogo", "pig", "--alvo", "alto"}));
+        VERIFICAR(lerArgumentos({"--jogo", "pig"}).limites.empty());  // sem --limite: fica o do json
+    }
+
+    // ---- --limite em forma de lista ----
+    {
+        VERIFICAR(lerArgumentos({"--jogo", "pig", "--limite", "3,5,7,10"}).limites == (std::vector<int>{3, 5, 7, 10}));
+        VERIFICAR(lerArgumentos({"--jogo", "pig", "--limite", "10,3"}).limites == (std::vector<int>{10, 3}));  // a ordem é mantida
+        VERIFICAR_LANCA(std::runtime_error, lerArgumentos({"--jogo", "pig", "--limite", "3,,5"}));   // pedaço vazio
+        VERIFICAR_LANCA(std::runtime_error, lerArgumentos({"--jogo", "pig", "--limite", "3,5,"}));   // vírgula sobrando
+        VERIFICAR_LANCA(std::runtime_error, lerArgumentos({"--jogo", "pig", "--limite", "3,x"}));    // não é número
+        VERIFICAR_LANCA(std::runtime_error, lerArgumentos({"--jogo", "pig", "--limite", "5,3,5"}));  // repetido
+        VERIFICAR_LANCA(std::runtime_error, lerArgumentos({"--jogo", "pig", "--limite", "3 5"}));    // espaço não separa
+        VERIFICAR_LANCA(std::runtime_error, lerArgumentos({"--jogo", "pig", "--limite", "3,5", "--rotulo", "r"}));
+        VERIFICAR(lerArgumentos({"--jogo", "pig", "--limite", "3", "--rotulo", "r"}).rotulo == "r");  // um limite: pode
     }
 
     const fs::path pasta = fs::temp_directory_path() / "pg_teste_experimento";
@@ -51,7 +65,9 @@ int main() {
     // ---- uma rodada de cada jogo: arquivos e conteúdo ----
     for (const std::string jogo : {"pig", "blackjack"}) {
         std::ostringstream log;
-        const std::string resumo = rodarExperimento(config(jogo, 3), log);
+        const std::vector<std::string> resumos = rodarExperimento(config(jogo, 3), log);
+        VERIFICAR(resumos.size() == 1);
+        const std::string resumo = resumos.at(0);
         const fs::path dir = pasta / jogo / "limite_4_partidas_20";
         VERIFICAR(resumo == (dir / "semente_3.resumo.csv").string());
         VERIFICAR(fs::exists(dir / "semente_3.csv") && fs::exists(dir / "semente_3_campeao.txt"));
@@ -77,10 +93,10 @@ int main() {
     // ---- mesma semente, mesmo resultado (tirando o tempo); outra semente, outro ----
     {
         std::ostringstream log;
-        const std::string a = linhas(rodarExperimento(config("blackjack", 3), log))[1];
+        const std::string a = linhas(rodarExperimento(config("blackjack", 3), log).at(0))[1];
         ConfigExperimento c = config("blackjack", 3);
         c.saida = (pasta / "repetida").string();
-        const std::string b = linhas(rodarExperimento(c, log))[1];
+        const std::string b = linhas(rodarExperimento(c, log).at(0))[1];
         // a coluna "segundos" é a penúltima (antes da árvore); compara todo o resto
         auto semTempo = [](const std::string& l) {
             const std::size_t fimArvore = l.rfind(",\"");
@@ -93,7 +109,7 @@ int main() {
         bool historicoIgual = ha.size() == hb.size();
         for (std::size_t i = 0; historicoIgual && i < ha.size(); ++i) historicoIgual = semUltimaColuna(ha[i]) == semUltimaColuna(hb[i]);
         VERIFICAR(historicoIgual);
-        const std::string z = linhas(rodarExperimento(config("blackjack", 4), log))[1];
+        const std::string z = linhas(rodarExperimento(config("blackjack", 4), log).at(0))[1];
         VERIFICAR(semTempo(z) != semTempo(a));
     }
 
@@ -104,7 +120,7 @@ int main() {
         c.partidas = 21;  // ímpar
         VERIFICAR_LANCA(std::runtime_error, rodarExperimento(c, log));
         c = config("pig", 1);
-        c.limite = 1;  // menor que a profundidade mínima de uma árvore
+        c.limites = {1};  // menor que a profundidade mínima de uma árvore
         VERIFICAR_LANCA(std::runtime_error, rodarExperimento(c, log));
         c = config("pig", 1);
         c.confirmacao = 3;
@@ -112,6 +128,43 @@ int main() {
         c = config("pig", 1);
         c.spec = "dataset/nao_existe.json";
         VERIFICAR_LANCA(std::runtime_error, rodarExperimento(c, log));
+    }
+
+    // ---- lista de limites: uma rodada por limite, cada uma igual à rodada avulsa ----
+    {
+        std::ostringstream log;
+        ConfigExperimento c = config("blackjack", 5);
+        c.saida = (pasta / "lista").string();
+        c.limites = {3, 5};
+        const std::vector<std::string> resumos = rodarExperimento(c, log);
+        VERIFICAR(resumos.size() == 2);
+        VERIFICAR(resumos.at(0) == (pasta / "lista/blackjack/limite_3_partidas_20/semente_5.resumo.csv").string());
+        VERIFICAR(resumos.at(1) == (pasta / "lista/blackjack/limite_5_partidas_20/semente_5.resumo.csv").string());
+        VERIFICAR(campos(linhas(resumos.at(0))[1])[4] == "3" && campos(linhas(resumos.at(1))[1])[4] == "5");
+        VERIFICAR(linhas((pasta / "lista/blackjack/limite_3_partidas_20/semente_5.csv").string()).size() == 4);
+        const std::string l = log.str();
+        VERIFICAR(l.find("limite_3_partidas_20") < l.find("limite_5_partidas_20"));  // na ordem pedida
+        // o limite 5 dentro da lista dá o mesmo histórico que rodado sozinho
+        ConfigExperimento s = config("blackjack", 5);
+        s.saida = (pasta / "sozinho").string();
+        s.limites = {5};
+        rodarExperimento(s, log);
+        const auto ha = linhas((pasta / "lista/blackjack/limite_5_partidas_20/semente_5.csv").string());
+        const auto hb = linhas((pasta / "sozinho/blackjack/limite_5_partidas_20/semente_5.csv").string());
+        bool igual = ha.size() == hb.size();
+        for (std::size_t i = 0; igual && i < ha.size(); ++i) igual = semUltimaColuna(ha[i]) == semUltimaColuna(hb[i]);
+        VERIFICAR(igual);
+        // um limite inválido no fim da lista é recusado antes de rodar qualquer um
+        ConfigExperimento ruim = config("blackjack", 5);
+        ruim.saida = (pasta / "ruim").string();
+        ruim.limites = {3, 1};
+        VERIFICAR_LANCA(std::runtime_error, rodarExperimento(ruim, log));
+        VERIFICAR(!fs::exists(pasta / "ruim"));
+        // --rotulo com vários limites também é recusado se a struct for montada à mão
+        ConfigExperimento rot = config("blackjack", 5);
+        rot.limites = {3, 5};
+        rot.rotulo = "r";
+        VERIFICAR_LANCA(std::runtime_error, rodarExperimento(rot, log));
     }
 
     fs::remove_all(pasta);

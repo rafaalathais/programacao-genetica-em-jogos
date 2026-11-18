@@ -6,7 +6,8 @@
 #include <string>
 #include <vector>
 
-// Uma rodada de experimento: um jogo, uma semente, uma configuração.
+// Uma rodada de experimento: um jogo, uma semente, uma configuração
+// (ou uma rodada por limite de profundidade, se vier uma lista em --limite).
 // Lê os 3 json, aplica as trocas pedidas na linha de comando (sem editar os arquivos),
 // roda o motor e grava, em <saida>/<jogo>/<rotulo>/:
 //   semente_<n>.csv          histórico por geração (escreverCsv)
@@ -20,11 +21,14 @@ struct ConfigExperimento {
     std::string avaliador;  // vazio = dataset/avaliador_<jogo>.json
     std::string spec;       // vazio = dataset/specs_regras_<jogo>.json
     std::string saida = "resultados";
-    std::string rotulo;     // vazio = "limite_<L>_partidas_<P>"
+    std::string rotulo;     // vazio = "limite_<L>_partidas_<P>" (só pode ser trocado com um limite)
 
     // trocas opcionais (sem valor = fica o do json)
-    std::optional<int> semente, limite, partidas, confirmacao, geracoes, semMelhora, populacao;
+    std::optional<int> semente, partidas, confirmacao, geracoes, semMelhora, populacao;
     std::optional<double> alvo;
+    // limites de profundidade (profundidade_limite_filhos), na ordem em que serão rodados.
+    // Vazio = o do json. "--limite 3,5,7,10" vira {3, 5, 7, 10}: uma rodada por limite.
+    std::vector<int> limites;
 };
 
 // Texto de ajuda com todas as opções.
@@ -34,8 +38,10 @@ std::string usoExperimento();
 // com uma mensagem clara para opção desconhecida, valor faltando ou número inválido.
 ConfigExperimento lerArgumentos(const std::vector<std::string>& argumentos);
 
-// Roda a rodada e grava os arquivos. Escreve uma linha de progresso em `log`.
-// Devolve o caminho do arquivo de resumo. Lança std::runtime_error se algo estiver inválido.
-std::string rodarExperimento(const ConfigExperimento& config, std::ostream& log);
+// Roda uma rodada por limite (ou uma só, com o limite do json) e grava os arquivos.
+// Escreve uma linha de progresso por rodada em `log`. Devolve os caminhos dos resumos,
+// na ordem dos limites. Confere todos os limites ANTES de rodar o primeiro: um limite
+// inválido no fim da lista não desperdiça as rodadas anteriores. Lança std::runtime_error.
+std::vector<std::string> rodarExperimento(const ConfigExperimento& config, std::ostream& log);
 
 #endif  // PROGRAMACAO_GENETICA_EM_JOGOS_EXPERIMENTO_H
