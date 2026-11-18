@@ -37,7 +37,7 @@ Tudo vai para `resultados/bateria_<data>_<hora>/`.
 ## Tabelas e gráficos
 
 A bateria roda `scripts/graficos.py` no fim. Para rodar à mão (precisa de
-`pip install pandas matplotlib`):
+`pip install pandas matplotlib`; os testes estatísticos usam também `scipy`):
 
 ```bash
 python3 scripts/graficos.py resultados/bateria_<data>_<hora>
@@ -56,6 +56,7 @@ Ele grava em `<pasta da bateria>/graficos/`:
 | `sorte_vs_reavaliado` | número medido na evolução × reavaliado com partidas novas |
 | `tabela_final.md` | a tabela principal (média ± desvio padrão entre sementes) |
 | `menores_arvores.txt` | a menor árvore que fica a até 0,5 ponto da melhor média, por jogo |
+| `testes_estatisticos.md`, `.csv` | diferença entre limites (Kruskal-Wallis; Mann-Whitney par a par com correção de Bonferroni) no pior winrate, nos nós e nos nós efetivos do campeão, e correlação de Spearman entre tamanho e desempenho; nível de significância em `--alfa` (padrão 0,05) |
 | `agregado_geracoes.csv`, `agregado_final.csv` | as médias (`__med`) e desvios (`__dp`) por configuração |
 
 Os gráficos saem em `.png` e `.pdf` (vetorial, para o texto), com Pig e Blackjack lado a lado.

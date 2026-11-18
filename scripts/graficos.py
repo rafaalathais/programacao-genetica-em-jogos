@@ -5,7 +5,8 @@ Uso, da raiz do projeto:
     python3 scripts/graficos.py resultados/bateria_20261118_120000
     python3 scripts/graficos.py resultados/bateria_X --formatos png,pdf --tolerancia 0.005
 
-Precisa de pandas e matplotlib (pip install pandas matplotlib).
+Precisa de pandas e matplotlib (pip install pandas matplotlib); os testes estatísticos
+usam também scipy (pip install scipy).
 
 Entrada: a pasta da bateria. O script procura, em qualquer subpasta, os arquivos que o
 executável `experimento` grava por rodada:
@@ -18,6 +19,9 @@ Saída (padrão: <pasta>/graficos/):
     agregado_final.csv     o mesmo para o resultado final de cada rodada (campeão reavaliado)
     tabela_final.md        a tabela principal, pronta para copiar para o texto
     menores_arvores.txt    a menor árvore que mantém o desempenho, por jogo
+    testes_estatisticos.csv / .md
+                           Kruskal-Wallis e Mann-Whitney (Bonferroni) entre limites, Spearman
+                           entre tamanho e desempenho (precisa de scipy; sem ele, é pulado)
     fitness_por_geracao, bloat_por_geracao, diversidade_por_geracao,
     final_por_limite, desempenho_vs_tamanho, winrate_por_adversario, sorte_vs_reavaliado
                            os gráficos (.png e/ou .pdf); Pig e Blackjack sempre lado a lado
@@ -29,6 +33,7 @@ são sempre entre as sementes de uma mesma configuração.
 import argparse
 import math
 import sys
+import warnings
 from pathlib import Path
 
 try:
@@ -42,6 +47,11 @@ try:
     from matplotlib.lines import Line2D
 except ImportError as erro:
     sys.exit(f"falta uma biblioteca: {erro.name}. Instale com: pip install pandas matplotlib")
+
+try:  # só os testes estatísticos usam; sem scipy, o resto sai normalmente
+    from scipy import stats
+except ImportError:
+    stats = None
 
 
 # ---------------------------------------------------------------- aparência
@@ -257,6 +267,96 @@ def menores_arvores(resumos: pd.DataFrame, final: pd.DataFrame, tolerancia: floa
     return "\n".join(saida)
 
 
+# ---------------------------------------------------------------- testes estatísticos
+# Cada semente dá UM valor por configuração (o campeão reavaliado), então cada grupo tem
+# poucas amostras (10 na bateria) e nada garante distribuição normal (no Pig as sementes
+# formam dois grupos). Por isso os testes são não paramétricos, baseados na ordem dos valores:
+#  - Kruskal-Wallis: há ALGUMA diferença entre os limites?
+#  - Mann-Whitney (bilateral), par a par: QUAIS limites diferem? Com k limites há k(k-1)/2
+#    comparações; a correção de Bonferroni multiplica cada p por esse número (teto 1),
+#    para que fazer muitas comparações não "fabrique" uma diferença por acaso.
+#  - Spearman: árvores maiores têm winrate maior? (correlação entre as ordens; não exige reta)
+METRICAS_TESTADAS = {"campeao_minimo": "pior winrate do campeão",
+                     "campeao_nos": "nós do campeão",
+                     "campeao_nos_efetivos": "nós efetivos do campeão"}
+CORRELACOES = [("campeao_nos", "campeao_minimo"), ("campeao_nos_efetivos", "campeao_minimo")]
+
+
+def testes_estatisticos(resumos: pd.DataFrame, alfa: float) -> pd.DataFrame:
+    """Uma linha por teste: jogo, métrica, teste, grupos comparados, estatística, p,
+    p corrigido (Bonferroni nos pares; igual a p nos demais) e se é significativo."""
+    linhas = []
+
+    def anotar(jogo, metrica, teste, grupos, n, calcular):
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")  # entrada constante: o resultado vira NaN
+                estatistica, p = calcular()
+        except ValueError:  # ex.: todos os valores iguais no Kruskal-Wallis
+            estatistica, p = float("nan"), float("nan")
+        linhas.append({"jogo": jogo, "metrica": metrica, "teste": teste, "grupos": grupos, "n": n,
+                       "estatistica": float(estatistica), "p": float(p)})
+
+    for jogo in jogos_presentes(resumos):
+        r = resumos[resumos["jogo"] == jogo]
+        cfgs = configuracoes(resumos, jogo)
+        amostras = {rot: r[(r["limite"] == l) & (r["partidas"] == p)] for l, p, rot in cfgs}
+        amostras = {rot: a for rot, a in amostras.items() if len(a) >= 2}  # 1 semente não dá teste
+        nomes = list(amostras)
+        n_grupos = "/".join(str(len(a)) for a in amostras.values())
+
+        for metrica in METRICAS_TESTADAS:
+            valores = [amostras[k][metrica].to_numpy() for k in nomes]
+            if len(valores) >= 2:
+                anotar(jogo, metrica, "Kruskal-Wallis", ", ".join(nomes), n_grupos,
+                       lambda: stats.kruskal(*valores))
+            for i in range(len(nomes)):
+                for j in range(i + 1, len(nomes)):
+                    a, b = valores[i], valores[j]
+                    anotar(jogo, metrica, "Mann-Whitney", f"{nomes[i]} × {nomes[j]}", f"{len(a)}/{len(b)}",
+                           lambda: stats.mannwhitneyu(a, b, alternative="two-sided"))
+
+        for x, y in CORRELACOES:
+            anotar(jogo, f"{x} × {y}", "Spearman", "todas as rodadas", str(len(r)),
+                   lambda: stats.spearmanr(r[x], r[y]))
+
+    t = pd.DataFrame(linhas)
+    if t.empty:
+        return t
+    pares = t["teste"] == "Mann-Whitney"
+    comparacoes = t[pares].groupby(["jogo", "metrica"])["p"].transform("size")
+    t["p_corrigido"] = t["p"]
+    t.loc[pares, "p_corrigido"] = (t.loc[pares, "p"] * comparacoes).clip(upper=1.0)
+    t["significativo"] = t["p_corrigido"] < alfa
+    return t
+
+
+def fmt_p(p):
+    if pd.isna(p):
+        return "—"
+    return "< 0,001" if p < 0.001 else virgula(f"{p:.3f}")
+
+
+def testes_markdown(t: pd.DataFrame, alfa: float) -> str:
+    nomes_metricas = dict(METRICAS_TESTADAS)
+    nomes_metricas.update({f"{x} × {y}": f"{nomes_metricas[x]} × {nomes_metricas[y]}" for x, y in CORRELACOES})
+    saida = []
+    for jogo in jogos_presentes(t):
+        saida.append(f"## {nome_jogo(jogo)}\n")
+        saida.append("| métrica | teste | grupos | n | estatística | p | p corrigido | significativo |")
+        saida.append("|---|---|---|---|---|---|---|---|")
+        for _, l in t[t["jogo"] == jogo].iterrows():
+            est = "—" if pd.isna(l["estatistica"]) else virgula(f"{l['estatistica']:.3f}")
+            sig = "—" if pd.isna(l["p_corrigido"]) else ("sim" if l["significativo"] else "não")
+            saida.append(f"| {nomes_metricas.get(l['metrica'], l['metrica'])} | {l['teste']} | {l['grupos']} | "
+                         f"{l['n']} | {est} | {fmt_p(l['p'])} | {fmt_p(l['p_corrigido'])} | {sig} |")
+        saida.append("")
+    saida.append(f"Nível de significância: {virgula(str(alfa))}. Um valor por semente (o campeão reavaliado). "
+                 "Estatística: H (Kruskal-Wallis), U (Mann-Whitney, bilateral) ou ρ (Spearman). "
+                 "\"p corrigido\": Bonferroni sobre os pares da mesma métrica; nos demais testes, igual a p.\n")
+    return "\n".join(saida)
+
+
 # ---------------------------------------------------------------- gráficos
 def grade_jogos(jogos, linhas=1, altura=3.2, compartilhar_y="row"):
     fig, eixos = plt.subplots(linhas, len(jogos), figsize=(4.6 * len(jogos), altura * linhas),
@@ -468,6 +568,7 @@ def main():
     ap.add_argument("--formatos", default="png,pdf", help="formatos das imagens, separados por vírgula (padrão: png,pdf)")
     ap.add_argument("--tolerancia", type=float, default=0.005,
                     help="quanto abaixo da melhor média ainda conta como 'mantém o desempenho' (padrão: 0.005 = 0,5 ponto)")
+    ap.add_argument("--alfa", type=float, default=0.05, help="nível de significância dos testes (padrão: 0.05)")
     args = ap.parse_args()
 
     if not args.pasta.is_dir():
@@ -486,6 +587,12 @@ def main():
     final.to_csv(saida / "agregado_final.csv", index=False, float_format="%.6f")
     (saida / "tabela_final.md").write_text(tabela_markdown(final, adversarios), encoding="utf-8")
     (saida / "menores_arvores.txt").write_text(menores_arvores(resumos, final, args.tolerancia), encoding="utf-8")
+    if stats is None:
+        print("aviso: sem scipy, os testes estatísticos não foram gerados (pip install scipy)", file=sys.stderr)
+    else:
+        testes = testes_estatisticos(resumos, args.alfa)
+        testes.to_csv(saida / "testes_estatisticos.csv", index=False, float_format="%.6g")
+        (saida / "testes_estatisticos.md").write_text(testes_markdown(testes, args.alfa), encoding="utf-8")
 
     estilo()
     fig_fitness(ag, saida, formatos)
