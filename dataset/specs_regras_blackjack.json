@@ -16,6 +16,6 @@
       "reduz_a_partir_de": 16
     },
     "rolagem_obrigatoria": true,
-    "empate": "conta_como_derrota"
+    "empate": "meio_ponto"
   }
 }

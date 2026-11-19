@@ -1,0 +1,6 @@
+src/main.cpp
+build/
+demo
+evolucao_*.csv
+experimento
+resultados/

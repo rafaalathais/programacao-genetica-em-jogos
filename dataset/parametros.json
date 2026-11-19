@@ -24,7 +24,8 @@
     "variacao_constante": 3
   },
   "parada": {
-    "winrate_alvo": 0.95,
-    "geracoes_sem_melhora": 10
+    "winrate_alvo": 0.60,
+    "geracoes_sem_melhora": 10,
+    "partidas_confirmacao": 20000
   }
 }
