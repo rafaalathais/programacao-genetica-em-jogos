@@ -1,7 +1,7 @@
-# programacao-genetica-em-jogos
+# Análise de Compromisso entre Tamanho de Árvore (Bloat) e Desempenho em Programação Genética Aplicada a Jogos
 
-Programação genética com árvores tipadas que evolui estratégias CONTINUAR/PARAR para
-dois jogos de dados: Pig e Blackjack de dados. C++17, json com nlohmann/json.
+Programação genética com árvores tipadas que evolui estratégias CONTINUAR/PARAR para dois jogos de dados: Pig e Blackjack de dados. C++17, json com nlohmann/json. Este projeto serve como base experimental para investigar o fenômeno do *bloat* (crescimento estrutural excessivo das árvores sem ganho proporcional de desempenho) e identificar o **menor tamanho de árvore evoluída capaz de manter alta qualidade competitiva** em diferentes perfis de jogos.
+
 
 ## Compilar e testar
 
